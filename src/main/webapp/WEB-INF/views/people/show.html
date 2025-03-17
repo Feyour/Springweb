@@ -1,10 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
+    <meta charset="UTF-8">
+    <title>People</title>
 </head>
 <body>
-$END$
+<h2>Person Details</h2>
+<p>Name: <span th:text="${person.name}">VALUE</span></p>
+<p>Age: <span th:text="${person.age}">VALUE</span></p>
+<p>Email: <span th:text="${person.email}">VALUE</span></p>
+<p>ID: <span th:text="${person.id}">VALUE</span></p>
+
+<a th:href="@{/people/{id}/edit(id=${person.getId()})}">Edit</a>
+<a href="/people">Back to list</a>
+
+<form th:method="DELETE" th:action="@{/people/{id}(id=${person.getId()})}" >
+    <input type="submit" value="Delete"/>
+</form>
 </body>
 </html>
