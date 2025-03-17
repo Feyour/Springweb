@@ -1,90 +1,95 @@
 package ru.albert.spring.dao;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import ru.albert.spring.models.Person;
 
-
-import java.sql.*;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 @Component
 public class PersonDAO {
     private static int PEOPLE_ID = 0;
+    private final JdbcTemplate jdbcTemplate;
 
-    private static final String  URL = "jdbc:postgresql://localhost:5432/postgres";
-    private static final String USER = "postgres";
-    private static final String PASSWORD = "password";
-
-    private static Connection connection;
-
-    static {
-        try {
-            Class.forName("org.postgresql.Driver");
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        try {
-            connection = DriverManager.getConnection(URL, USER, PASSWORD);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+    @Autowired
+    public PersonDAO(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
     }
 
-    public List<Person> index() throws SQLException {
+    public List<Person> index() {
+       return jdbcTemplate.query("SELECT * FROM Person", new BeanPropertyRowMapper<>(Person.class));
+    }
+
+    public Person show(int id) {
+      return jdbcTemplate.query("SELECT * FROM Person WHERE id = ?", new Object[]{id}, new BeanPropertyRowMapper<>(Person.class))
+              .stream().findAny().orElse(null);
+    }
+
+    public void save(Person person) {
+       jdbcTemplate.update("INSERT INTO Person VALUES (1, ?, ?, ?)",
+               person.getName(), person.getAge(), person.getEmail());
+    }
+
+    public void update(int id, Person updatedPerson) {
+     jdbcTemplate.update("UPDATE Person SET name=?, age=?, email=? WHERE id=?",
+             updatedPerson.getName(), updatedPerson.getAge(), updatedPerson.getEmail(), id);
+    }
+
+    public void delete(int id) {
+        jdbcTemplate.update("DELETE FROM Person WHERE id=?", id);
+    }
+    /// ///////////////////////////////////////////////////////////////////////
+    public void testMultipleUpdate() {
+        List<Person> people = create1000People();
+
+        long before = System.currentTimeMillis();
+
+        for (Person person : people) {
+            jdbcTemplate.update("INSERT INTO Person VALUES (?, ?, ?, ?)",
+                    person.getId(), person.getName(), person.getAge(), person.getEmail());
+        }
+
+        long after = System.currentTimeMillis();
+        System.out.println("Time taken: " + (after - before));
+    }
+
+    public void testBatchUpdate() {
+        List<Person> people = create1000People();
+
+        long before = System.currentTimeMillis();
+
+        for (Person person : people) {
+            jdbcTemplate.batchUpdate("INSERT INTO Person VALUES (?, ?, ?, ?)",
+            new BatchPreparedStatementSetter() {
+                @Override
+                public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+                    preparedStatement.setInt(1, people.get(i).getId());
+                    preparedStatement.setString(2, people.get(i).getName());
+                    preparedStatement.setInt(3, people.get(i).getAge());
+                    preparedStatement.setString(4, people.get(i).getEmail());
+                }
+
+                @Override
+                public int getBatchSize() {
+                    return people.size();
+                }
+            });
+        }
+
+        long after = System.currentTimeMillis();
+        System.out.println("Time taken: " + (after - before));
+    }
+
+    private List<Person> create1000People() {
         List<Person> people = new ArrayList<>();
-
-        Statement statement = connection.createStatement();
-        String SQL = "SELECT * FROM person";
-        statement.executeQuery(SQL);
-        ResultSet resultSet = statement.getResultSet();
-
-        while (resultSet.next()) {
-            Person person = new Person();
-            person.setId(resultSet.getInt("id"));
-            person.setName(resultSet.getString("name"));
-            person.setAge(resultSet.getInt("age"));
-            person.setEmail(resultSet.getString("email"));
-
-            people.add(person);
+        for (int i = 0; i < 1000; i++) {
+            people.add(new Person(i, "Test" + i, 30, "test@test.com"));
         }
         return people;
-    }
-
-    public Person show(int id) throws SQLException {
-        Person person = null;
-       PreparedStatement statement =
-               connection.prepareStatement("select * from Person where id=?");
-        statement.setInt(1, id);
-        ResultSet resultSet = statement.executeQuery();
-        resultSet.next();
-        person = new Person();
-        person.setId(resultSet.getInt("id"));
-        person.setName(resultSet.getString("name"));
-        person.setAge(resultSet.getInt("age"));
-        person.setEmail(resultSet.getString("email"));
-        return person;
-    }
-
-    public void save(Person person) throws SQLException {
-        PreparedStatement statement = connection.prepareStatement("INSERT INTO person VALUES (1, ?, ?, ?)");
-        statement.setString(1, person.getName());
-        statement.setInt(2, person.getId());
-        statement.setString(3, person.getEmail());
-        statement.executeUpdate();
-    }
-
-    public void update(int id, Person updatedPerson) throws SQLException {
-       PreparedStatement statement = connection.prepareStatement("update Person SET name=?, age=?, email=? WHERE id=?");
-        statement.setString(1, updatedPerson.getName());
-        statement.setInt(2, updatedPerson.getId());
-        statement.setString(3, updatedPerson.getEmail());
-        statement.setInt(4, updatedPerson.getId());
-        statement.executeUpdate();
-    }
-
-    public void delete(int id) throws SQLException {
-        PreparedStatement statement = connection.prepareStatement("DELETE FROM Person WHERE id=?");
-        statement.setInt(1, id);
-        statement.executeUpdate();
     }
 }
