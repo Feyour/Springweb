@@ -2,12 +2,14 @@ package ru.albert.spring.controllers;
 
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import ru.albert.spring.dao.PersonDAO;
 import ru.albert.spring.models.Person;
+import ru.albert.spring.util.PersonValidator;
 
 import java.sql.SQLException;
 
@@ -16,10 +18,12 @@ import java.sql.SQLException;
 public class PeopleController {
 
     private final PersonDAO personDAO;
+    private final PersonValidator personValidator;
 
     @Autowired
-    public PeopleController(PersonDAO personDAO) {
+    public PeopleController(PersonDAO personDAO, PersonValidator personValidator) {
         this.personDAO = personDAO;
+        this.personValidator = personValidator;
     }
 
     @GetMapping
@@ -40,6 +44,7 @@ public class PeopleController {
     @PostMapping
     public String create(@ModelAttribute ("person") @Valid Person person,
                          BindingResult bindingresult) {
+        personValidator.validate(person, bindingresult);
         if (bindingresult.hasErrors()) {
             return "people/new";
         }
@@ -57,6 +62,7 @@ public class PeopleController {
     public String update(@ModelAttribute ("person") @Valid Person person,
                          BindingResult bindingresult,
                          @PathVariable("id") int id) {
+        personValidator.validate(person, bindingresult);
         if (bindingresult.hasErrors()) {
             return "people/edit";
         }
